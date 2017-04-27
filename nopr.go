@@ -50,7 +50,7 @@ func init() {
 func startHandler(w http.ResponseWriter, r *http.Request) {
 	ctx := appengine.NewContext(r)
 	u := user.Current(ctx)
-	if u == nil {
+	if u == nil || u.Email != "tsdgeos@gmail.com" {
 		ctx.Infof("not logged in, redirecting...")
 		loginURL, _ := user.LoginURL(ctx, r.URL.Path)
 		http.Redirect(w, r, loginURL, http.StatusSeeOther)
@@ -79,7 +79,7 @@ func oauthHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	u := user.Current(ctx)
-	if u == nil {
+	if u == nil || u.Email != "tsdgeos@gmail.com" {
 		ctx.Infof("not logged in, redirecting...")
 		loginURL, _ := user.LoginURL(ctx, r.URL.Path)
 		http.Redirect(w, r, loginURL, http.StatusSeeOther)
@@ -179,7 +179,7 @@ func DeleteUser(ctx appengine.Context, userID string) error {
 func userHandler(w http.ResponseWriter, r *http.Request) {
 	ctx := appengine.NewContext(r)
 	uu := user.Current(ctx)
-	if uu == nil {
+	if uu == nil || uu.Email != "tsdgeos@gmail.com" {
 		ctx.Infof("not logged in, redirecting...")
 		loginURL, _ := user.LoginURL(ctx, r.URL.Path)
 		http.Redirect(w, r, loginURL, http.StatusSeeOther)
@@ -278,7 +278,7 @@ func disableHandler(w http.ResponseWriter, r *http.Request) {
 
 	ctx := appengine.NewContext(r)
 	uu := user.Current(ctx)
-	if uu == nil {
+	if uu == nil || uu.Email != "tsdgeos@gmail.com" {
 		ctx.Infof("not logged in, redirecting...")
 		loginURL, _ := user.LoginURL(ctx, r.URL.Path)
 		http.Redirect(w, r, loginURL, http.StatusSeeOther)
@@ -328,7 +328,7 @@ func enableHandler(w http.ResponseWriter, r *http.Request) {
 
 	ctx := appengine.NewContext(r)
 	uu := user.Current(ctx)
-	if uu == nil {
+	if uu == nil || uu.Email != "tsdgeos@gmail.com" {
 		ctx.Infof("not logged in, redirecting...")
 		loginURL, _ := user.LoginURL(ctx, r.URL.Path)
 		http.Redirect(w, r, loginURL, http.StatusSeeOther)
@@ -436,7 +436,7 @@ func revokeHandler(w http.ResponseWriter, r *http.Request) {
 
 	ctx := appengine.NewContext(r)
 	uu := user.Current(ctx)
-	if uu == nil {
+	if uu == nil || uu.Email != "tsdgeos@gmail.com" {
 		ctx.Infof("not logged in, redirecting...")
 		loginURL, _ := user.LoginURL(ctx, r.URL.Path)
 		http.Redirect(w, r, loginURL, http.StatusSeeOther)
