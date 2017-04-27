@@ -23,9 +23,9 @@ import (
 )
 
 const (
-	// TODO: store these more securely (and revoke these when you do!)
-	clientID        = "350be49c3c1988aac719"
-	clientSecret    = "f14c9383c4b8964781ea4acdd881946b1dfed488"
+	// TODO: get these for your own app in github
+	clientID        = ""
+	clientSecret    = ""
 	redirectURLPath = "/oauthcallback"
 )
 
