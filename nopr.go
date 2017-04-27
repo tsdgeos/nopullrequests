@@ -192,13 +192,25 @@ func userHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	repos, _, err := newClient(ctx, u.GitHubToken).Repositories.List("", &github.RepositoryListOptions{
+	allRepos := []github.Repository{}
+	opt := &github.RepositoryListOptions{
 		Type: "admin",
-	})
-	if err != nil {
-		ctx.Errorf("listing repos: %v", err)
-		renderError(w, "Error listing repos")
-		return
+		ListOptions: github.ListOptions{
+			PerPage: 100,
+		},
+	}
+	for {
+		repos, resp, err := newClient(ctx, u.GitHubToken).Repositories.List("", opt)
+		if err != nil {
+			ctx.Errorf("listing repos: %v", err)
+			renderError(w, "Error listing repos")
+			return
+		}
+		allRepos = append(allRepos, repos...)
+		if resp.NextPage == 0 {
+			break
+		}
+		opt.ListOptions.Page = resp.NextPage
 	}
 
 	type data struct {
@@ -208,7 +220,7 @@ func userHandler(w http.ResponseWriter, r *http.Request) {
 	d := []data{}
 
 	keys := []*datastore.Key{}
-	for _, r := range repos {
+	for _, r := range allRepos {
 		keys = append(keys, datastore.NewKey(ctx, "Repo", *r.FullName, 0, nil))
 	}
 	repoEntities := make([]Repo, len(keys))
@@ -216,7 +228,7 @@ func userHandler(w http.ResponseWriter, r *http.Request) {
 		if me, ok := err.(appengine.MultiError); ok {
 			for i, e := range me {
 				var disabled = e == nil
-				d = append(d, data{Repo: repos[i], Disabled: disabled})
+				d = append(d, data{Repo: allRepos[i], Disabled: disabled})
 			}
 		} else {
 			ctx.Errorf("getmulti: %v", err)
@@ -225,7 +237,7 @@ func userHandler(w http.ResponseWriter, r *http.Request) {
 		}
 	} else {
 		// all repos are disabled
-		for _, r := range repos {
+		for _, r := range allRepos {
 			d = append(d, data{Repo: r, Disabled: true})
 		}
 	}
