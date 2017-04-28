@@ -429,7 +429,11 @@ func webhookHandler(w http.ResponseWriter, r *http.Request) {
 	*/
 
 	if _, _, err := client.Issues.CreateComment(ghUser, ghRepo, *hook.Number, &github.IssueComment{
-		Body: github.String("Thanks for your contribution :)\n\nThis repository is a mirror a KDE repository. For this reason we can't accept contributions through Github. Please see https://community.kde.org/Infrastructure/Github_Mirror for details on how to contribute to this and other KDE projects."),
+		Body: github.String(`
+Thanks for your contribution :)
+
+This repository is a mirror a KDE repository. For this reason we can't accept contributions through Github.
+Please see https://community.kde.org/Infrastructure/Github_Mirror for details on how to contribute to this and other KDE projects.`),
 	}); err != nil {
 		ctx.Errorf("failed to create comment: %v", err)
 	}
