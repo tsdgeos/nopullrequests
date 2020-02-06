@@ -14,10 +14,12 @@ import (
 	"net/http"
 	"strings"
 
-	"appengine"
-	"appengine/datastore"
-	"appengine/urlfetch"
-	"appengine/user"
+	"golang.org/x/net/context"
+	"google.golang.org/appengine"
+	"google.golang.org/appengine/datastore"
+	"google.golang.org/appengine/log"
+	"google.golang.org/appengine/urlfetch"
+	"google.golang.org/appengine/user"
 
 	"github.com/google/go-github/github"
 )
@@ -51,13 +53,13 @@ func startHandler(w http.ResponseWriter, r *http.Request) {
 	ctx := appengine.NewContext(r)
 	u := user.Current(ctx)
 	if u == nil || u.Email != "tsdgeos@gmail.com" {
-		ctx.Infof("not logged in, redirecting...")
+		log.Infof(ctx, "not logged in, redirecting...")
 		loginURL, _ := user.LoginURL(ctx, r.URL.Path)
 		http.Redirect(w, r, loginURL, http.StatusSeeOther)
 		return
 	}
 
-	ctx.Infof("starting oauth...")
+	log.Infof(ctx, "starting oauth...")
 	redirectURL := fmt.Sprintf("https://%s.appspot.com", appengine.AppID(ctx)) + redirectURLPath
 	url := fmt.Sprintf("https://github.com/login/oauth/authorize?client_id=%s&redirect_uri=%s&scope=%s",
 		clientID, redirectURL, scopes)
@@ -73,14 +75,14 @@ func oauthHandler(w http.ResponseWriter, r *http.Request) {
 	ctx := appengine.NewContext(r)
 	code := r.FormValue("code")
 	if code == "" {
-		ctx.Errorf("no code, going to start")
+		log.Errorf(ctx, "no code, going to start")
 		http.Redirect(w, r, "/start", http.StatusSeeOther)
 		return
 	}
 
 	u := user.Current(ctx)
 	if u == nil || u.Email != "tsdgeos@gmail.com" {
-		ctx.Infof("not logged in, redirecting...")
+		log.Infof(ctx, "not logged in, redirecting...")
 		loginURL, _ := user.LoginURL(ctx, r.URL.Path)
 		http.Redirect(w, r, loginURL, http.StatusSeeOther)
 		return
@@ -88,14 +90,14 @@ func oauthHandler(w http.ResponseWriter, r *http.Request) {
 
 	tok, err := getAccessToken(ctx, code)
 	if err != nil {
-		ctx.Errorf("getting access token: %v", err)
+		log.Errorf(ctx, "getting access token: %v", err)
 		renderError(w, "Error getting access token")
 		return
 	}
 
 	ghu, _, err := newClient(ctx, tok).Users.Get("")
 	if err != nil {
-		ctx.Errorf("getting user: %v", err)
+		log.Errorf(ctx, "getting user: %v", err)
 		renderError(w, "Error getting user")
 		return
 	}
@@ -105,14 +107,14 @@ func oauthHandler(w http.ResponseWriter, r *http.Request) {
 		GitHubUserID: *ghu.ID,
 		GitHubToken:  tok,
 	}); err != nil {
-		ctx.Errorf("put user: %v", err)
+		log.Errorf(ctx, "put user: %v", err)
 		renderError(w, "Error writing user entry")
 		return
 	}
 	http.Redirect(w, r, "/user", http.StatusSeeOther)
 }
 
-func getAccessToken(ctx appengine.Context, code string) (string, error) {
+func getAccessToken(ctx context.Context, code string) (string, error) {
 	client := urlfetch.Client(ctx)
 	url := fmt.Sprintf("https://github.com/login/oauth/access_token?client_id=%s&client_secret=%s&code=%s",
 		clientID, clientSecret, code)
@@ -120,7 +122,7 @@ func getAccessToken(ctx appengine.Context, code string) (string, error) {
 	req.Header.Set("Accept", "application/json")
 	resp, err := client.Do(req)
 	if err != nil {
-		ctx.Errorf("exchanging code: %v", err)
+		log.Errorf(ctx, "exchanging code: %v", err)
 		return "", err
 	}
 	defer resp.Body.Close()
@@ -128,18 +130,18 @@ func getAccessToken(ctx appengine.Context, code string) (string, error) {
 		AccessToken string `json:"access_token"`
 	}
 	if err := json.NewDecoder(resp.Body).Decode(&b); err != nil {
-		ctx.Errorf("decoding json: %v", err)
+		log.Errorf(ctx, "decoding json: %v", err)
 		return "", err
 	}
 	return b.AccessToken, nil
 }
 
-func newClient(ctx appengine.Context, tok string) *github.Client {
+func newClient(ctx context.Context, tok string) *github.Client {
 	return github.NewClient(&http.Client{Transport: transport{ctx, tok}})
 }
 
 type transport struct {
-	ctx appengine.Context
+	ctx context.Context
 	tok string
 }
 
@@ -154,25 +156,25 @@ type User struct {
 	GitHubToken  string
 }
 
-func PutUser(ctx appengine.Context, u User) error {
+func PutUser(ctx context.Context, u User) error {
 	k := datastore.NewKey(ctx, "User", u.GoogleUserID, 0, nil)
 	_, err := datastore.Put(ctx, k, &u)
 	return err
 }
 
-func GetUser(ctx appengine.Context, id string) *User {
+func GetUser(ctx context.Context, id string) *User {
 	k := datastore.NewKey(ctx, "User", id, 0, nil)
 	var u User
 	if err := datastore.Get(ctx, k, &u); err == datastore.ErrNoSuchEntity {
 		return nil
 	} else if err != nil {
-		ctx.Errorf("getting user: %v", err)
+		log.Errorf(ctx, "getting user: %v", err)
 		return nil
 	}
 	return &u
 }
 
-func DeleteUser(ctx appengine.Context, userID string) error {
+func DeleteUser(ctx context.Context, userID string) error {
 	return datastore.Delete(ctx, datastore.NewKey(ctx, "User", userID, 0, nil))
 }
 
@@ -180,14 +182,14 @@ func userHandler(w http.ResponseWriter, r *http.Request) {
 	ctx := appengine.NewContext(r)
 	uu := user.Current(ctx)
 	if uu == nil || uu.Email != "tsdgeos@gmail.com" {
-		ctx.Infof("not logged in, redirecting...")
+		log.Infof(ctx, "not logged in, redirecting...")
 		loginURL, _ := user.LoginURL(ctx, r.URL.Path)
 		http.Redirect(w, r, loginURL, http.StatusSeeOther)
 		return
 	}
 	u := GetUser(ctx, uu.ID)
 	if u == nil {
-		ctx.Infof("unknown user, going to /start")
+		log.Infof(ctx, "unknown user, going to /start")
 		http.Redirect(w, r, "/start", http.StatusSeeOther)
 		return
 	}
@@ -202,7 +204,7 @@ func userHandler(w http.ResponseWriter, r *http.Request) {
 	for {
 		repos, resp, err := newClient(ctx, u.GitHubToken).Repositories.List("", opt)
 		if err != nil {
-			ctx.Errorf("listing repos: %v", err)
+			log.Errorf(ctx, "listing repos: %v", err)
 			renderError(w, "Error listing repos")
 			return
 		}
@@ -231,7 +233,7 @@ func userHandler(w http.ResponseWriter, r *http.Request) {
 				d = append(d, data{Repo: allRepos[i], Disabled: disabled})
 			}
 		} else {
-			ctx.Errorf("getmulti: %v", err)
+			log.Errorf(ctx, "getmulti: %v", err)
 			renderError(w, "Error retrieving repos")
 			return
 		}
@@ -243,7 +245,7 @@ func userHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := userTmpl.Execute(w, d); err != nil {
-		ctx.Errorf("executing template: %v", err)
+		log.Errorf(ctx, "executing template: %v", err)
 	}
 }
 
@@ -261,25 +263,25 @@ func (r Repo) Split() (string, string) {
 	return parts[0], parts[1]
 }
 
-func PutRepo(ctx appengine.Context, r Repo) error {
+func PutRepo(ctx context.Context, r Repo) error {
 	k := datastore.NewKey(ctx, "Repo", r.FullName, 0, nil)
 	_, err := datastore.Put(ctx, k, &r)
 	return err
 }
 
-func GetRepo(ctx appengine.Context, fn string) *Repo {
+func GetRepo(ctx context.Context, fn string) *Repo {
 	k := datastore.NewKey(ctx, "Repo", fn, 0, nil)
 	var r Repo
 	if err := datastore.Get(ctx, k, &r); err == datastore.ErrNoSuchEntity {
 		return nil
 	} else if err != nil {
-		ctx.Errorf("getting repo: %v", err)
+		log.Errorf(ctx, "getting repo: %v", err)
 		return nil
 	}
 	return &r
 }
 
-func DeleteRepo(ctx appengine.Context, fn string) error {
+func DeleteRepo(ctx context.Context, fn string) error {
 	return datastore.Delete(ctx, datastore.NewKey(ctx, "Repo", fn, 0, nil))
 }
 
@@ -291,14 +293,14 @@ func disableHandler(w http.ResponseWriter, r *http.Request) {
 	ctx := appengine.NewContext(r)
 	uu := user.Current(ctx)
 	if uu == nil || uu.Email != "tsdgeos@gmail.com" {
-		ctx.Infof("not logged in, redirecting...")
+		log.Infof(ctx, "not logged in, redirecting...")
 		loginURL, _ := user.LoginURL(ctx, r.URL.Path)
 		http.Redirect(w, r, loginURL, http.StatusSeeOther)
 		return
 	}
 	u := GetUser(ctx, uu.ID)
 	if u == nil {
-		ctx.Infof("unknown user, going to /start")
+		log.Infof(ctx, "unknown user, going to /start")
 		http.Redirect(w, r, "/start", http.StatusSeeOther)
 		return
 	}
@@ -316,7 +318,7 @@ func disableHandler(w http.ResponseWriter, r *http.Request) {
 		},
 	})
 	if err != nil {
-		ctx.Errorf("creating hook: %v", err)
+		log.Errorf(ctx, "creating hook: %v", err)
 		renderError(w, "Error creating webhook")
 		return
 	}
@@ -326,7 +328,7 @@ func disableHandler(w http.ResponseWriter, r *http.Request) {
 		UserID:    u.GoogleUserID,
 		WebhookID: *hook.ID,
 	}); err != nil {
-		ctx.Errorf("put repo: %v", err)
+		log.Errorf(ctx, "put repo: %v", err)
 		renderError(w, "Error writing repo entry")
 		return
 	}
@@ -341,14 +343,14 @@ func enableHandler(w http.ResponseWriter, r *http.Request) {
 	ctx := appengine.NewContext(r)
 	uu := user.Current(ctx)
 	if uu == nil || uu.Email != "tsdgeos@gmail.com" {
-		ctx.Infof("not logged in, redirecting...")
+		log.Infof(ctx, "not logged in, redirecting...")
 		loginURL, _ := user.LoginURL(ctx, r.URL.Path)
 		http.Redirect(w, r, loginURL, http.StatusSeeOther)
 		return
 	}
 	u := GetUser(ctx, uu.ID)
 	if u == nil {
-		ctx.Infof("unknown user, going to /start")
+		log.Infof(ctx, "unknown user, going to /start")
 		http.Redirect(w, r, "/start", http.StatusSeeOther)
 		return
 	}
@@ -364,12 +366,12 @@ func enableHandler(w http.ResponseWriter, r *http.Request) {
 
 	ghUser, ghRepo := repo.Split()
 	if _, err := newClient(ctx, u.GitHubToken).Repositories.DeleteHook(ghUser, ghRepo, repo.WebhookID); err != nil {
-		ctx.Errorf("delete hook: %v", err)
+		log.Errorf(ctx, "delete hook: %v", err)
 		renderError(w, "Error deleting webhook")
 		return
 	}
 	if err := DeleteRepo(ctx, repo.FullName); err != nil {
-		ctx.Errorf("delete repo: %v", err)
+		log.Errorf(ctx, "delete repo: %v", err)
 		renderError(w, "Error deleting repo entry")
 		return
 	}
@@ -387,25 +389,25 @@ func webhookHandler(w http.ResponseWriter, r *http.Request) {
 	defer r.Body.Close()
 	var hook github.PullRequestEvent
 	if err := json.NewDecoder(r.Body).Decode(&hook); err != nil {
-		ctx.Errorf("decoding json: %v", err)
+		log.Errorf(ctx, "decoding json: %v", err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 	if *hook.Action != "opened" && *hook.Action != "reopened" {
 		return
 	}
-	ctx.Infof("got webhook for pull request %d opened for %q (%s)", *hook.Number, *hook.Repo.FullName, *hook.PullRequest.Head.SHA)
+	log.Infof(ctx, "got webhook for pull request %d opened for %q (%s)", *hook.Number, *hook.Repo.FullName, *hook.PullRequest.Head.SHA)
 
 	repo := GetRepo(ctx, *hook.Repo.FullName)
 	if repo == nil {
-		ctx.Errorf("unknown repo")
+		log.Errorf(ctx, "unknown repo")
 		// TODO: delete webhook?
 		return
 	}
 
 	user := GetUser(ctx, repo.UserID)
 	if user == nil {
-		ctx.Errorf("unknown user %q", repo.UserID)
+		log.Errorf(ctx, "unknown user %q", repo.UserID)
 		// TODO: user who configured the hook has left?
 		return
 	}
@@ -435,13 +437,13 @@ Thanks for your contribution :smiley:
 This repository is a mirror of a KDE repository. This means that developers are not looking at pull requests created in GitHub, so I'm closing this pull request (actually a bot is doing it).
 Please see https://community.kde.org/Infrastructure/Github_Mirror for details on how to contribute to this and other KDE projects.`),
 	}); err != nil {
-		ctx.Errorf("failed to create comment: %v", err)
+		log.Errorf(ctx, "failed to create comment: %v", err)
 	}
 
 	if _, _, err := client.PullRequests.Edit(ghUser, ghRepo, *hook.Number, &github.PullRequest{
 		State: github.String("closed"),
 	}); err != nil {
-		ctx.Errorf("failed to close pull request: %v", err)
+		log.Errorf(ctx, "failed to close pull request: %v", err)
 	}
 }
 
@@ -453,14 +455,14 @@ func revokeHandler(w http.ResponseWriter, r *http.Request) {
 	ctx := appengine.NewContext(r)
 	uu := user.Current(ctx)
 	if uu == nil || uu.Email != "tsdgeos@gmail.com" {
-		ctx.Infof("not logged in, redirecting...")
+		log.Infof(ctx, "not logged in, redirecting...")
 		loginURL, _ := user.LoginURL(ctx, r.URL.Path)
 		http.Redirect(w, r, loginURL, http.StatusSeeOther)
 		return
 	}
 	u := GetUser(ctx, uu.ID)
 	if u == nil {
-		ctx.Infof("unknown user, going to /start")
+		log.Infof(ctx, "unknown user, going to /start")
 		http.Redirect(w, r, "/start", http.StatusSeeOther)
 		return
 	}
@@ -473,35 +475,35 @@ func revokeHandler(w http.ResponseWriter, r *http.Request) {
 		if _, err := t.Next(&r); err == datastore.Done {
 			break
 		} else if err != nil {
-			ctx.Errorf("query: %v", err)
+			log.Errorf(ctx, "query: %v", err)
 			renderError(w, "Error listing repos")
 			return
 		}
 		ghUser, ghRepo := r.Split()
 		if _, err := client.Repositories.DeleteHook(ghUser, ghRepo, r.WebhookID); err != nil {
-			ctx.Errorf("delete hook: %v", err)
+			log.Errorf(ctx, "delete hook: %v", err)
 			renderError(w, "Error deleting hook")
 			return
 		}
 		if err := DeleteRepo(ctx, r.FullName); err != nil {
-			ctx.Errorf("delete repo: %v", err)
+			log.Errorf(ctx, "delete repo: %v", err)
 			renderError(w, "Error deleting repo entry")
 			return
 		}
 	}
 
 	url := fmt.Sprintf("https://api.github.com/applications/%s/tokens/%s", clientID, u.GitHubToken)
-	ctx.Debugf(url)
+	log.Debugf(ctx, url)
 	req, _ := http.NewRequest("DELETE", url, nil)
 	req.SetBasicAuth(clientID, clientSecret)
 	if resp, err := urlfetch.Client(ctx).Do(req); err != nil || resp.StatusCode != http.StatusNoContent {
-		ctx.Errorf("revoking token (%d): %v", resp.StatusCode, err)
+		log.Errorf(ctx, "revoking token (%d): %v", resp.StatusCode, err)
 		renderError(w, "Error revoking access")
 		return
 	}
 
 	if err := DeleteUser(ctx, uu.ID); err != nil {
-		ctx.Errorf("delete user: %v", err)
+		log.Errorf(ctx, "delete user: %v", err)
 		renderError(w, "Error deleting user entry")
 		return
 	}
