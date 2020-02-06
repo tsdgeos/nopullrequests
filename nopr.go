@@ -97,7 +97,7 @@ func oauthHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	ghu, _, err := newClient(ctx, tok).Users.Get("")
+	ghu, _, err := newClient(ctx, tok).Users.Get(ctx, "")
 	if err != nil {
 		log.Errorf(ctx, "getting user: %v", err)
 		renderError(w, "Error getting user")
@@ -121,6 +121,10 @@ func getAccessToken(ctx context.Context, code string) (string, error) {
 	url := fmt.Sprintf("https://github.com/login/oauth/access_token?client_id=%s&client_secret=%s&code=%s",
 		clientID, clientSecret, code)
 	req, err := http.NewRequest("POST", url, nil)
+	if err != nil {
+		log.Errorf(ctx, "posting request: %v", err)
+		return "", err
+	}
 	req.Header.Set("Accept", "application/json")
 	resp, err := client.Do(req)
 	if err != nil {
@@ -154,7 +158,7 @@ func (t transport) RoundTrip(req *http.Request) (*http.Response, error) {
 
 type User struct {
 	GoogleUserID string
-	GitHubUserID int
+	GitHubUserID int64
 	GitHubToken  string
 }
 
@@ -196,7 +200,7 @@ func userHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	allRepos := []github.Repository{}
+	allRepos := []*github.Repository{}
 	opt := &github.RepositoryListOptions{
 		Type: "admin",
 		ListOptions: github.ListOptions{
@@ -204,7 +208,7 @@ func userHandler(w http.ResponseWriter, r *http.Request) {
 		},
 	}
 	for {
-		repos, resp, err := newClient(ctx, u.GitHubToken).Repositories.List("", opt)
+		repos, resp, err := newClient(ctx, u.GitHubToken).Repositories.List(ctx, "", opt)
 		if err != nil {
 			log.Errorf(ctx, "listing repos: %v", err)
 			renderError(w, "Error listing repos")
@@ -218,7 +222,7 @@ func userHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	type data struct {
-		Repo     github.Repository
+		Repo     *github.Repository
 		Disabled bool
 	}
 	d := []data{}
@@ -254,7 +258,7 @@ func userHandler(w http.ResponseWriter, r *http.Request) {
 type Repo struct {
 	FullName  string // e.g., MyUser/foo-bar
 	UserID    string // User key to use to close PRs
-	WebhookID int    // Used to delete the hook
+	WebhookID int64  // Used to delete the hook
 }
 
 func (r Repo) Split() (string, string) {
@@ -311,7 +315,7 @@ func disableHandler(w http.ResponseWriter, r *http.Request) {
 	fullName := r.URL.Path[len("/disable/"):]
 
 	ghUser, ghRepo := Repo{FullName: fullName}.Split()
-	hook, _, err := newClient(ctx, u.GitHubToken).Repositories.CreateHook(ghUser, ghRepo, &github.Hook{
+	hook, _, err := newClient(ctx, u.GitHubToken).Repositories.CreateHook(ctx, ghUser, ghRepo, &github.Hook{
 		Name:   github.String("web"),
 		Events: []string{"pull_request"},
 		Config: map[string]interface{}{
@@ -367,7 +371,7 @@ func enableHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	ghUser, ghRepo := repo.Split()
-	if _, err := newClient(ctx, u.GitHubToken).Repositories.DeleteHook(ghUser, ghRepo, repo.WebhookID); err != nil {
+	if _, err := newClient(ctx, u.GitHubToken).Repositories.DeleteHook(ctx, ghUser, ghRepo, repo.WebhookID); err != nil {
 		log.Errorf(ctx, "delete hook: %v", err)
 		renderError(w, "Error deleting webhook")
 		return
@@ -432,7 +436,7 @@ func webhookHandler(w http.ResponseWriter, r *http.Request) {
 		}
 	*/
 
-	if _, _, err := client.Issues.CreateComment(ghUser, ghRepo, *hook.Number, &github.IssueComment{
+	if _, _, err := client.Issues.CreateComment(ctx, ghUser, ghRepo, *hook.Number, &github.IssueComment{
 		Body: github.String(`
 Thanks for your contribution :smiley:
 
@@ -442,7 +446,7 @@ Please see https://community.kde.org/Infrastructure/Github_Mirror for details on
 		log.Errorf(ctx, "failed to create comment: %v", err)
 	}
 
-	if _, _, err := client.PullRequests.Edit(ghUser, ghRepo, *hook.Number, &github.PullRequest{
+	if _, _, err := client.PullRequests.Edit(ctx, ghUser, ghRepo, *hook.Number, &github.PullRequest{
 		State: github.String("closed"),
 	}); err != nil {
 		log.Errorf(ctx, "failed to close pull request: %v", err)
@@ -482,7 +486,7 @@ func revokeHandler(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		ghUser, ghRepo := r.Split()
-		if _, err := client.Repositories.DeleteHook(ghUser, ghRepo, r.WebhookID); err != nil {
+		if _, err := client.Repositories.DeleteHook(ctx, ghUser, ghRepo, r.WebhookID); err != nil {
 			log.Errorf(ctx, "delete hook: %v", err)
 			renderError(w, "Error deleting hook")
 			return
