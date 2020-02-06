@@ -6,7 +6,7 @@
 // TODO: use gorilla sessions instead of Google auth
 // TODO: xsrf everywhere
 
-package nopr
+package main
 
 import (
 	"encoding/json"
@@ -39,7 +39,9 @@ var scopes = strings.Join([]string{
 	// "repo:status",     // permission to add statuses to commits
 }, ",")
 
-func init() {
+func main() {
+	appengine.Main()
+
 	http.HandleFunc("/start", startHandler)
 	http.HandleFunc(redirectURLPath, oauthHandler)
 	http.HandleFunc("/user", userHandler)

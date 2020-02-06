@@ -1,4 +1,4 @@
-package nopr
+package main
 
 import "html/template"
 

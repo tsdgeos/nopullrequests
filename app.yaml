@@ -1,7 +1,4 @@
-application: nopullrequests
-version: 1
-runtime: go
-api_version: go1
+runtime: go112
 
 handlers:
 - url: /static
@@ -16,4 +13,4 @@ handlers:
   upload: static/home.html
 
 - url: /.*
-  script: _go_app
+  script: auto
