@@ -15,6 +15,7 @@ import (
 	"strings"
 
 	"golang.org/x/net/context"
+	"golang.org/x/oauth2"
 	"google.golang.org/appengine"
 	"google.golang.org/appengine/datastore"
 	"google.golang.org/appengine/log"
@@ -26,9 +27,10 @@ import (
 
 const (
 	// TODO: get these for your own app in github
-	clientID        = ""
-	clientSecret    = ""
-	redirectURLPath = "/oauthcallback"
+	accessToken  = ""
+	clientID     = ""
+	clientSecret = ""
+	// redirectURLPath = "/oauthcallback"
 )
 
 var scopes = strings.Join([]string{
@@ -45,7 +47,7 @@ func main() {
 
 func init() {
 	http.HandleFunc("/start", startHandler)
-	http.HandleFunc(redirectURLPath, oauthHandler)
+	// http.HandleFunc(redirectURLPath, oauthHandler)
 	http.HandleFunc("/user", userHandler)
 	http.HandleFunc("/enable/", enableHandler)
 	http.HandleFunc("/disable/", disableHandler)
@@ -63,11 +65,13 @@ func startHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	log.Infof(ctx, "starting oauth...")
-	redirectURL := fmt.Sprintf("https://%s.appspot.com", appengine.AppID(ctx)) + redirectURLPath
-	url := fmt.Sprintf("https://github.com/login/oauth/authorize?client_id=%s&redirect_uri=%s&scope=%s",
-		clientID, redirectURL, scopes)
-	http.Redirect(w, r, url, http.StatusSeeOther)
+	/*
+		log.Infof(ctx, "starting oauth...")
+		redirectURL := fmt.Sprintf("https://%s.appspot.com", appengine.AppID(ctx)) + redirectURLPath
+		url := fmt.Sprintf("https://github.com/login/oauth/authorize?client_id=%s&redirect_uri=%s&scope=%s",
+			clientID, redirectURL, scopes)
+		http.Redirect(w, r, url, http.StatusSeeOther)
+	*/
 }
 
 func renderError(w http.ResponseWriter, msg string) {
@@ -75,6 +79,7 @@ func renderError(w http.ResponseWriter, msg string) {
 	errorTmpl.Execute(w, msg)
 }
 
+/*
 func oauthHandler(w http.ResponseWriter, r *http.Request) {
 	ctx := appengine.NewContext(r)
 	code := r.FormValue("code")
@@ -143,11 +148,18 @@ func getAccessToken(ctx context.Context, code string) (string, error) {
 	}
 	return b.AccessToken, nil
 }
+*/
 
 func newClient(ctx context.Context, tok string) *github.Client {
-	return github.NewClient(&http.Client{Transport: transport{ctx, tok}})
+	ts := oauth2.StaticTokenSource(
+		&oauth2.Token{AccessToken: accessToken},
+	)
+	tc := oauth2.NewClient(oauth2.NoContext, ts)
+
+	return github.NewClient(tc)
 }
 
+/*
 type transport struct {
 	ctx context.Context
 	tok string
@@ -157,6 +169,7 @@ func (t transport) RoundTrip(req *http.Request) (*http.Response, error) {
 	req.Header.Set("Authorization", "token "+t.tok)
 	return urlfetch.Client(t.ctx).Do(req)
 }
+*/
 
 type User struct {
 	GoogleUserID string
