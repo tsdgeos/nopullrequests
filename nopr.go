@@ -41,7 +41,9 @@ var scopes = strings.Join([]string{
 
 func main() {
 	appengine.Main()
+}
 
+func init() {
 	http.HandleFunc("/start", startHandler)
 	http.HandleFunc(redirectURLPath, oauthHandler)
 	http.HandleFunc("/user", userHandler)
