@@ -212,6 +212,18 @@ func userHandler(w http.ResponseWriter, r *http.Request) {
 	for {
 		repos, resp, err := newClient(ctx, u.GitHubToken).Repositories.List(ctx, "", opt)
 		if err != nil {
+			errResponse, ok := err.(*github.ErrorResponse)
+			if ok && errResponse.Response.StatusCode == 401 {
+				// The token has expired, delete the user to request a re-login
+				if err := DeleteUser(ctx, uu.ID); err != nil {
+					log.Errorf(ctx, "deleting user with expired github token: %v", err)
+					renderError(w, "Error deleting user with expired GitHub token")
+					return
+				}
+
+				http.Redirect(w, r, "/", http.StatusSeeOther)
+			}
+
 			log.Errorf(ctx, "listing repos: %v", err)
 			renderError(w, "Error listing repos")
 			return
