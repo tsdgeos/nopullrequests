@@ -22,6 +22,7 @@ import (
 	"google.golang.org/appengine/user"
 
 	"github.com/google/go-github/github"
+	"github.com/qedus/nds"
 )
 
 const (
@@ -166,14 +167,14 @@ type User struct {
 
 func PutUser(ctx context.Context, u User) error {
 	k := datastore.NewKey(ctx, "User", u.GoogleUserID, 0, nil)
-	_, err := datastore.Put(ctx, k, &u)
+	_, err := nds.Put(ctx, k, &u)
 	return err
 }
 
 func GetUser(ctx context.Context, id string) *User {
 	k := datastore.NewKey(ctx, "User", id, 0, nil)
 	var u User
-	if err := datastore.Get(ctx, k, &u); err == datastore.ErrNoSuchEntity {
+	if err := nds.Get(ctx, k, &u); err == datastore.ErrNoSuchEntity {
 		return nil
 	} else if err != nil {
 		log.Errorf(ctx, "getting user: %v", err)
@@ -183,7 +184,7 @@ func GetUser(ctx context.Context, id string) *User {
 }
 
 func DeleteUser(ctx context.Context, userID string) error {
-	return datastore.Delete(ctx, datastore.NewKey(ctx, "User", userID, 0, nil))
+	return nds.Delete(ctx, datastore.NewKey(ctx, "User", userID, 0, nil))
 }
 
 func userHandler(w http.ResponseWriter, r *http.Request) {
@@ -246,7 +247,7 @@ func userHandler(w http.ResponseWriter, r *http.Request) {
 		keys = append(keys, datastore.NewKey(ctx, "Repo", *r.FullName, 0, nil))
 	}
 	repoEntities := make([]Repo, len(keys))
-	if err := datastore.GetMulti(ctx, keys, repoEntities); err != nil {
+	if err := nds.GetMulti(ctx, keys, repoEntities); err != nil {
 		if me, ok := err.(appengine.MultiError); ok {
 			for i, e := range me {
 				var disabled = e == nil
@@ -285,14 +286,14 @@ func (r Repo) Split() (string, string) {
 
 func PutRepo(ctx context.Context, r Repo) error {
 	k := datastore.NewKey(ctx, "Repo", r.FullName, 0, nil)
-	_, err := datastore.Put(ctx, k, &r)
+	_, err := nds.Put(ctx, k, &r)
 	return err
 }
 
 func GetRepo(ctx context.Context, fn string) *Repo {
 	k := datastore.NewKey(ctx, "Repo", fn, 0, nil)
 	var r Repo
-	if err := datastore.Get(ctx, k, &r); err == datastore.ErrNoSuchEntity {
+	if err := nds.Get(ctx, k, &r); err == datastore.ErrNoSuchEntity {
 		return nil
 	} else if err != nil {
 		log.Errorf(ctx, "getting repo: %v", err)
@@ -302,7 +303,7 @@ func GetRepo(ctx context.Context, fn string) *Repo {
 }
 
 func DeleteRepo(ctx context.Context, fn string) error {
-	return datastore.Delete(ctx, datastore.NewKey(ctx, "Repo", fn, 0, nil))
+	return nds.Delete(ctx, datastore.NewKey(ctx, "Repo", fn, 0, nil))
 }
 
 func disableHandler(w http.ResponseWriter, r *http.Request) {
