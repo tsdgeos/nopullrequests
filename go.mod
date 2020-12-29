@@ -7,4 +7,5 @@ require (
 	github.com/google/go-querystring v1.0.0 // indirect
 	golang.org/x/net v0.0.0-20200202094626-16171245cfb2
 	google.golang.org/appengine v1.6.5
+	github.com/qedus/nds v1.0.0
 )
