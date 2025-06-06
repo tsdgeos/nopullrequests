@@ -456,7 +456,10 @@ func webhookHandler(w http.ResponseWriter, r *http.Request) {
 Thanks for your contribution :smiley:
 
 This repository is a mirror of a KDE repository. This means that developers are not looking at pull requests created in GitHub, so I'm closing this pull request (actually a bot is doing it).
-Please see https://community.kde.org/Infrastructure/Github_Mirror for details on how to contribute to this and other KDE projects.`),
+Please see https://community.kde.org/Infrastructure/Github_Mirror for details on how to contribute to this and other KDE projects.
+				    
+If your contribution is related to translation/localization, please contact the KDE localization team for your language instead: https://l10n.kde.org/teams-list.php
+ `),
 	}); err != nil {
 		log.Errorf(ctx, "failed to create comment: %v", err)
 	}
